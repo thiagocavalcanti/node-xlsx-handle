@@ -1,0 +1,29 @@
+{
+  "name": "xlsx-handle",
+  "version": "0.1.0",
+  "description": "A handle for the xlsx package. The two main features are xlsxToArray and xlsxMapToObjects",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --reporter spec"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/thiagocavalcanti/node-xlsx-handle.git"
+  },
+  "keywords": [
+    "xlsx;array;json;handle"
+  ],
+  "author": "Thiago C. C. Oliveira <thiago.ccoliveira@gmail.com> (https://github.com/thiagocavalcanti)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/thiagocavalcanti/node-xlsx-handle/issues"
+  },
+  "homepage": "https://github.com/thiagocavalcanti/node-xlsx-handle#readme",
+  "engines": {
+    "node": ">=12.4.0"
+  },
+  "devDependencies": {
+    "chai": "^4.2.0",
+    "mocha": "^6.1.4"
+  }
+}
