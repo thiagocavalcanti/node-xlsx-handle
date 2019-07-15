@@ -1,5 +1,3 @@
-'use strict';
-
 const XLSX = require('xlsx');
 
 /**
@@ -70,7 +68,7 @@ const handleXlsx = data => {
       documents.push(doc);
     }
   });
-  return documents
+  return documents;
 };
 
 /**
@@ -208,4 +206,4 @@ const handleXlsxRow = (doc, row, header, ids) => {
 module.exports = {
   handleXlsx,
   convertXlsxToArray
-}
+};
