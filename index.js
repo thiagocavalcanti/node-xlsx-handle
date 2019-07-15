@@ -47,8 +47,8 @@ const convertXlsxToArray = (data, type = 'base64') => {
  * @param {string} type type of content
  * @return {array} all the docs created
  */
-const handleXlsx = data => {
-  const { xlsx, header, ids } = convertXlsxToArray(data);
+const handleXlsx = (data, type = 'base64') => {
+  const { xlsx, header, ids } = convertXlsxToArray(data, type);
   let documents = [];
   xlsx.forEach(row => {
     let doc = documents.find(d => {
