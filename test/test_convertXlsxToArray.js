@@ -1,7 +1,7 @@
 'use strict';
 
 var expect = require('chai').expect;
-var numFormatter = require('../index');
+var { convertXlsxToArray } = require('../index');
 
 describe('#numFormatter', function() {
   it('should convert single digits', function() {
