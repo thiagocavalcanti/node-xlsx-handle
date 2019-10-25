@@ -11,10 +11,7 @@ const XLSX = require('xlsx');
 const convertXlsxToArray = (data, type = 'base64') => {
   data = data.split(`${type},`)[1];
   const workbook = XLSX.read(data, { type });
-  const [cols, rows] = [
-    workbook.Sheets[workbook.SheetNames[1]]['B1'].v,
-    workbook.Sheets[workbook.SheetNames[1]]['B2'].v
-  ];
+  const [cols, rows] = [workbook.Sheets[workbook.SheetNames[1]]['B1'].v, workbook.Sheets[workbook.SheetNames[1]]['B2'].v];
   const worksheet = workbook.Sheets[workbook.SheetNames[0]];
   const cells_names = Object.keys(worksheet).filter(c => !c.split('!')[1]);
   const cells = cells_names.map(cell => worksheet[cell].v);
@@ -28,10 +25,18 @@ const convertXlsxToArray = (data, type = 'base64') => {
     }
     return h;
   });
+
+  let blankValues = 0;
   for (let i = 1; i < rows; i++) {
     xlsx.push([]);
     for (let j = 0; j < cols; j++) {
-      xlsx[i - 1].push(cells[i * cols + j]);
+      const cell_name = cells_names[i * cols + j - blankValues];
+      if (cell_name.charCodeAt(0) - 65 === j) {
+        xlsx[i - 1].push(cells[i * cols + j]);
+      } else {
+        xlsx[i - 1].push('');
+        blankValues++;
+      }
     }
   }
   return {
@@ -83,6 +88,8 @@ const handleXlsxTypes = (value, type) => {
       return value;
     case 'Boolean':
       return value === 'True';
+    case 'Object':
+      return JSON.parse(value);
     default:
       return value;
   }
@@ -102,14 +109,14 @@ const handleXlsxRow = (doc, row, header, ids) => {
 
   header.forEach((h, index) => {
     // [x]Check type
-    const [h_rest, type] = h.replace(' ', '').split(':');
+    const [h_rest, type] = h.trim().split(':');
 
     // [x] Get Value
-    const value = handleXlsxTypes(row[index], type);
+    const value = handleXlsxTypes(row[index], type ? type.trim() : undefined);
 
     // [x] Check nested objects. Ex: A.B.[C].D
     let object_ref = {};
-    const h_objects = h_rest.split('.');
+    const h_objects = h_rest.trim().split('.');
 
     // [x] Creating doc if necessary (only ids)
     if (!Object.keys(doc).length) {
@@ -129,9 +136,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
       let key_array_item = key_array.find(a => a.index === obj_index);
       if (key_array_item) {
         if (key_array_item.array === obj.replace(/[\[\]]/g, '')) {
-          object_ref = object_ref[key_array_item.array].find(
-            a => a[key_array_item.name] === key_array_item.value
-          );
+          object_ref = object_ref[key_array_item.array].find(a => a[key_array_item.name] === key_array_item.value);
           return;
         } else delete key_array_item;
       }
@@ -160,8 +165,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
       // [x] Array
       else {
         // [x] Check if array already exists
-        if (!object_ref[array.replace('*', '')])
-          object_ref[array.replace('*', '')] = [];
+        if (!object_ref[array.replace('*', '')]) object_ref[array.replace('*', '')] = [];
 
         // [x] Not last object
         if (obj_index !== h_objects.length - 1) {
@@ -177,9 +181,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
           object_ref = object_ref[array.replace('*', '')];
 
           // [x] Check if array already exists to get reference
-          let array_item = object_ref.find(
-            a => a[h_objects[obj_index + 1]] === value
-          );
+          let array_item = object_ref.find(a => a[h_objects[obj_index + 1]] === value);
           if (array_item) object_ref = array_item;
         }
         // [x] Last object
@@ -190,11 +192,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
               if (!object_ref[array].includes(v)) object_ref[array].push(v);
             });
           } else {
-            value
-              .split(';')
-              .forEach(
-                v => !object_ref[array].includes(v) && object_ref[array].push(v)
-              );
+            value.split(';').forEach(v => !object_ref[array].includes(v) && object_ref[array].push(v));
           }
         }
       }
