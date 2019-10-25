@@ -59,6 +59,9 @@ const convertXlsxToArray = (data, type = 'base64') => {
         }
       }
     }
+
+    validatePrimaryKeys(xlsx.map(row => row[ids[0]]));
+
     return {
       xlsx,
       header,
@@ -127,10 +130,9 @@ const handleXlsxTypes = (value, type) => {
 };
 
 /**
- * Handle a row from xlsx
- * @param {string} value content of the cell
- * @param {string} type type of content
- * @return {any} the value formated
+ * Remove special chars, used in dictionary.
+ * @param {string} value content of the cell.
+ * @return {string} the value formated.
  */
 const removeSpecialChars = value => {
   let clearString = value;
@@ -138,6 +140,20 @@ const removeSpecialChars = value => {
     clearString = clearString.replace(dictionary.key, '');
   }
   return clearString;
+};
+
+/**
+ * Validate primary key. Throw new error if any duplicate
+ * @param {Array} primaryKeys All the primaryKeys
+ */
+const validatePrimaryKeys = primaryKeys => {
+  const unique = [...new Set(primaryKeys)];
+  unique.forEach(key => {
+    const occorencies = primaryKeys.filter(primaryKey => primaryKey === key);
+    if (occorencies.length > 1) {
+      throw new Error(`Primary key is not unique in the sheet. Value: ${key}`);
+    }
+  });
 };
 
 /**
