@@ -46,10 +46,10 @@ const convertXlsxToArray = (data, type = 'base64') => {
       xlsx.push([]);
       for (let j = 0; j < cols; j++) {
         const cell_name = cells_names[i * cols + j - blankValues];
-        if (cell_name.charCodeAt(0) - 65 === j) {
+        if (cell_name && cell_name.charCodeAt(0) - 65 === j) {
           xlsx[i - 1].push(cells[i * cols + j - blankValues]);
         } else {
-          if (required.includes(j) || ids.includes(j)) {
+          if (cell_name && (required.includes(j) || ids.includes(j))) {
             const colunm = String.fromCharCode(65 + j);
             throw new Error(`Missing required value in cell ${colunm}${i + 1}`);
           } else {
