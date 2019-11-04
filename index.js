@@ -9,6 +9,30 @@ const dictionary = {
 };
 
 /**
+ * Verify progress.
+ * @param   {number} count The total of interactions so far.
+ * @param   {number} total The total of interactions.
+ * @returns {number} The new % of the progress (if not, return undefinied)
+ */
+const _verifyProgress = (count, total) => {
+  if (Math.floor((100 * count) / total) > Math.floor((100 * (count - 1)) / total)) return Math.round((100 * count) / total);
+};
+
+/**
+ * Splicing the array of documents into sub arrays.
+ * @param   {Array}  BigArray The array with all the documents.
+ * @param   {Number} size     The size of the sub arrays.
+ * @returns {Array}  The array with the sub arrays.
+ */
+const _creatingSmallerArrays = (BigArray, size = 100) => {
+  const arrayOfArrays = [];
+  for (let i = 0; i < BigArray.length; i += size) {
+    arrayOfArrays.push(BigArray.slice(i, i + size));
+  }
+  return arrayOfArrays;
+};
+
+/**
  * Controller of the xlsx
  * @param {array} data file xlsx
  * @param {string} type formatation of file (default = base64)
@@ -78,14 +102,15 @@ const convertXlsxToArray = (data, type = 'base64') => {
  * @param {string} type type of content
  * @return {array} all the docs created
  */
-const handleXlsx = (data, type = 'base64') => {
+const handleXlsx = (data, params) => {
+  const { debug = false, type = 'base64', subDocuments = 0 } = params;
   try {
     const { xlsx, header, ids, error } = convertXlsxToArray(data, type);
     if (error) {
       throw new Error(error);
     } else {
       let documents = [];
-      xlsx.forEach(row => {
+      xlsx.forEach((row, index) => {
         let doc = documents.find(d => {
           if (!d) return false;
           for (let i = 0; i < ids.length; i++) {
@@ -102,8 +127,10 @@ const handleXlsx = (data, type = 'base64') => {
           doc = handleXlsxRow({}, row, header, ids);
           documents.push(doc);
         }
+        const newProgress = _verifyProgress(index, xlsx.length);
+        if (debug && newProgress) console.log(`Lendo arquivo... ${newProgress}%`);
       });
-      return { documents };
+      return subDocuments ? { documents: _creatingSmallerArrays(documents, subDocuments) } : { documents };
     }
   } catch (error) {
     return { error };
