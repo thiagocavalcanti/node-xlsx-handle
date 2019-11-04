@@ -1,49 +1,23 @@
 const XLSX = require('xlsx');
-
-/**
- * Dictionary for special chars.
- */
-const dictionary = {
-  primaryKey: '$',
-  required: '*'
-};
-
-/**
- * Verify progress.
- * @param   {number} count The total of interactions so far.
- * @param   {number} total The total of interactions.
- * @returns {number} The new % of the progress (if not, return undefinied)
- */
-const _verifyProgress = (count, total) => {
-  if (Math.floor((100 * count) / total) > Math.floor((100 * (count - 1)) / total)) return Math.round((100 * count) / total);
-};
-
-/**
- * Splicing the array of documents into sub arrays.
- * @param   {Array}  BigArray The array with all the documents.
- * @param   {Number} size     The size of the sub arrays.
- * @returns {Array}  The array with the sub arrays.
- */
-const _creatingSmallerArrays = (BigArray, size = 100) => {
-  const arrayOfArrays = [];
-  for (let i = 0; i < BigArray.length; i += size) {
-    arrayOfArrays.push(BigArray.slice(i, i + size));
-  }
-  return arrayOfArrays;
-};
+const utils = require('./utils');
+const { dictionary } = require('./config');
 
 /**
  * Controller of the xlsx
- * @param {array} data file xlsx
- * @param {string} type formatation of file (default = base64)
- * @return {array} the matrix xlsx
- * @return {array} the header
- * @return {array} the ids index
+ * @param  {array}  data file xlsx
+ * @param  {object} params params for configuration {type,debug}
+ * @return {array}  the matrix xlsx
+ * @return {array}  the header
+ * @return {array}  the ids index
  */
-const convertXlsxToArray = (data, type = 'base64') => {
+const convertXlsxToArray = (data, params) => {
+  const { type = 'base64', debug = false } = params;
   try {
     data = data.split(`${type},`)[1];
+    const benchmark = Date.now();
     const workbook = XLSX.read(data, { type });
+    if (debug) console.log('Time to read xlsx file: ', utils.timeConversion(Date.now() - benchmark));
+    delete benchmark;
     const [cols, rows] = [workbook.Sheets[workbook.SheetNames[1]]['B1'].v, workbook.Sheets[workbook.SheetNames[1]]['B2'].v];
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const cells_names = Object.keys(worksheet).filter(c => !c.split('!')[1]);
@@ -84,7 +58,7 @@ const convertXlsxToArray = (data, type = 'base64') => {
       }
     }
 
-    validatePrimaryKeys(xlsx.map(row => row[ids[0]]));
+    utils.validatePrimaryKeys(xlsx.map(row => row[ids[0]]));
 
     return {
       xlsx,
@@ -103,13 +77,16 @@ const convertXlsxToArray = (data, type = 'base64') => {
  * @return {array} all the docs created
  */
 const handleXlsx = (data, params) => {
-  const { debug = false, type = 'base64', subDocuments = 0 } = params;
+  const { debug = false, subDocuments = 0 } = params;
   try {
-    const { xlsx, header, ids, error } = convertXlsxToArray(data, type);
+    let benchmark = Date.now();
+    const { xlsx, header, ids, error } = convertXlsxToArray(data, params);
+    if (debug) console.log('Time to convert xlsx to matrix: ', utils.timeConversion(Date.now() - benchmark));
     if (error) {
       throw new Error(error);
     } else {
       let documents = [];
+      benchmark = Date.now();
       xlsx.forEach((row, index) => {
         let doc = documents.find(d => {
           if (!d) return false;
@@ -127,60 +104,15 @@ const handleXlsx = (data, params) => {
           doc = handleXlsxRow({}, row, header, ids);
           documents.push(doc);
         }
-        const newProgress = _verifyProgress(index, xlsx.length);
-        if (debug && newProgress) console.log(`Lendo arquivo... ${newProgress}%`);
+        const newProgress = utils.verifyProgress(index, xlsx.length);
+        if (debug && newProgress) console.log(`Handling file... ${newProgress}%`);
       });
-      return subDocuments ? { documents: _creatingSmallerArrays(documents, subDocuments) } : { documents };
+      if (debug) console.log('Time to handle file: ', utils.timeConversion(Date.now() - benchmark));
+      return subDocuments ? { documents: utils.creatingSmallerArrays(documents, subDocuments) } : { documents };
     }
   } catch (error) {
     return { error };
   }
-};
-
-/**
- * Handle a row from xlsx
- * @param {string} value content of the cell
- * @param {string} type type of content
- * @return {any} the value formated
- */
-const handleXlsxTypes = (value, type) => {
-  switch (type) {
-    case 'String':
-      return value;
-    case 'Boolean':
-      return value === 'True';
-    case 'Object':
-      return JSON.parse(value);
-    default:
-      return value;
-  }
-};
-
-/**
- * Remove special chars, used in dictionary.
- * @param {string} value content of the cell.
- * @return {string} the value formated.
- */
-const removeSpecialChars = value => {
-  let clearString = value;
-  for (key in dictionary) {
-    clearString = clearString.replace(dictionary.key, '');
-  }
-  return clearString;
-};
-
-/**
- * Validate primary key. Throw new error if any duplicate
- * @param {Array} primaryKeys All the primaryKeys
- */
-const validatePrimaryKeys = primaryKeys => {
-  const unique = [...new Set(primaryKeys)];
-  unique.forEach(key => {
-    const occorencies = primaryKeys.filter(primaryKey => primaryKey === key);
-    if (occorencies.length > 1) {
-      throw new Error(`Primary key is not unique in the sheet. Value: ${key}`);
-    }
-  });
 };
 
 /**
@@ -200,7 +132,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
     const [h_rest, type] = h.trim().split(':');
 
     // [x] Get Value
-    const value = handleXlsxTypes(row[index], type ? type.trim() : undefined);
+    const value = utils.handleXlsxTypes(row[index], type ? type.trim() : undefined);
 
     // [x] Check nested objects. Ex: A.B.[C].D
     let object_ref = {};
@@ -253,20 +185,20 @@ const handleXlsxRow = (doc, row, header, ids) => {
       // [x] Array
       else {
         // [x] Check if array already exists
-        if (!object_ref[removeSpecialChars(array)]) object_ref[removeSpecialChars(array)] = [];
+        if (!object_ref[utils.removeSpecialChars(array)]) object_ref[utils.removeSpecialChars(array)] = [];
 
         // [x] Not last object
         if (obj_index !== h_objects.length - 1) {
           // [x] Check if key array
           if (array.includes(dictionary.primaryKey)) {
             key_array.push({
-              array: removeSpecialChars(array),
+              array: utils.removeSpecialChars(array),
               name: h_objects[obj_index + 1],
               value,
               index: obj_index
             });
           }
-          object_ref = object_ref[removeSpecialChars(array)];
+          object_ref = object_ref[utils.removeSpecialChars(array)];
 
           // [x] Check if array already exists to get reference
           let array_item = object_ref.find(a => a[h_objects[obj_index + 1]] === value);
