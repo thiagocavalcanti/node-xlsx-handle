@@ -69,7 +69,7 @@ const handleXlsx = (data, params) => {
   const { debug = false, subDocuments = 0 } = params;
   try {
     let benchmark = Date.now();
-    const { xlsx, header, ids, error } = convertXlsxToArray(data, params);
+    const { xlsx, header, id, error } = convertXlsxToArray(data, params);
 
     if (debug) console.log('[XLSX-HANDLE] Time to convert xlsx to matrix: ', utils.timeConversion(Date.now() - benchmark));
     if (error) {
@@ -81,18 +81,16 @@ const handleXlsx = (data, params) => {
         const row = xlsx[index];
         let doc = documents.find(d => {
           if (!d) return false;
-          for (let i = 0; i < ids.length; i++) {
-            const header_key = header[ids[i]].trim().split(':')[0];
-            if (row[ids[i]] !== d[header_key]) return false;
-          }
+          const { headerKey } = header[id];
+          if (row[id] !== d[headerKey]) return false;
           return true;
         });
 
         // [x] Handle row
         if (doc) {
-          handleXlsxRow(doc, row, header, ids);
+          _handleXlsxRow(doc, row, header, id);
         } else {
-          doc = handleXlsxRow({}, row, header, ids);
+          doc = _handleXlsxRow({}, row, header, id);
           documents.push(doc);
         }
         const newProgress = utils.verifyProgress(index, xlsx.length);
@@ -111,15 +109,15 @@ const handleXlsx = (data, params) => {
  * @param {Object} doc
  * @param {Array} row
  * @param {Array} header
- * @param {Array} ids
+ * @param {Array} id
  * @return {Object} a new/updated doc
  */
-const handleXlsxRow = (doc, row, header, ids) => {
+const _handleXlsxRow = (doc, row, header, id) => {
   // [x] Model: { array: '', name: '', value: '', index: -1 }
   let key_array = [];
 
   header.forEach((h, index) => {
-    const { type, headerObjectPaths } = h;
+    const { type, headerObjectPaths, headerKey } = h;
 
     // [x] Get Value
     const value = xlsxUtils.handleXlsxTypes(row[index], type ? type.trim() : undefined);
@@ -127,16 +125,13 @@ const handleXlsxRow = (doc, row, header, ids) => {
     // [x] Check nested objects. Ex: A.B.[C].D
     let object_ref = {};
 
-    // [x] Creating doc if necessary (only ids)
+    // [x] Creating doc if necessary (only id)
     if (!Object.keys(doc).length) {
-      for (let i = 0; i < ids.length; i++) {
-        const header_key = header[i].trim().split(':')[0];
-        doc[header_key] = row[ids[i] - 1];
-      }
+      doc[headerKey] = row[id];
     }
 
-    // [x] Return if ids
-    if (ids.find(i => i === (index + 1).toString())) return;
+    // [x] Return if id
+    if (id === index) return;
 
     // [x] Interects over nested objects
     headerObjectPaths.forEach((obj, obj_index) => {
@@ -155,7 +150,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
       // [x] Not Array
       if (array.length === obj.length) {
         // [x] Not last object
-        if (obj_index !== h_objects.length - 1) {
+        if (obj_index !== headerObjectPaths.length - 1) {
           if (!object_ref[obj]) object_ref[obj] = {};
           object_ref = object_ref[obj];
         }
@@ -177,12 +172,12 @@ const handleXlsxRow = (doc, row, header, ids) => {
         if (!object_ref[xlsxUtils.removeSpecialChars(array)]) object_ref[xlsxUtils.removeSpecialChars(array)] = [];
 
         // [x] Not last object
-        if (obj_index !== h_objects.length - 1) {
+        if (obj_index !== headerObjectPaths.length - 1) {
           // [x] Check if key array
           if (array.includes(dictionary.primaryKey)) {
             key_array.push({
               array: xlsxUtils.removeSpecialChars(array),
-              name: h_objects[obj_index + 1],
+              name: headerObjectPaths[obj_index + 1],
               value,
               index: obj_index
             });
@@ -190,7 +185,7 @@ const handleXlsxRow = (doc, row, header, ids) => {
           object_ref = object_ref[xlsxUtils.removeSpecialChars(array)];
 
           // [x] Check if array already exists to get reference
-          let array_item = object_ref.find(a => a[h_objects[obj_index + 1]] === value);
+          let array_item = object_ref.find(a => a[headerObjectPaths[obj_index + 1]] === value);
           if (array_item) object_ref = array_item;
         }
         // [x] Last object
