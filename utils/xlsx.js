@@ -47,17 +47,55 @@ const validatePrimaryKeys = primaryKeys => {
   });
 };
 
-const handleXlsxHeader = header => {
-  return header.map(head => {
-    const [headerKey, type] = head.trim().split(':');
-    const headerObjectPaths = headerKey.trim().split('.');
-    return { type, headerObjectPaths, headerKey };
+/**
+ * Handle xlsx head
+ * @param {Array} head The head.
+ *
+ * @returns {Array} An array containaing: type -> type of the head; headerObjectPaths -> the path of the head; headerKey -> The header key
+ */
+const handleXlsxHead = head => {
+  const [headerKey, type] = head.split(':').map(h => h.trim());
+  const headerObjectPaths = headerKey.split('.').map(h => h.trim());
+  return { type, headerObjectPaths, headerKey };
+};
+
+/**
+ * Read the header
+ * @param {Array} header The header.
+ *
+ * @returns {Object.Array}  The new header
+ * @returns {Object.Number} The index of the id
+ * @returns {Object.Array}  The array of the index of required cols
+ */
+
+const readHeader = header => {
+  const { dictionary } = config;
+  let id = -1;
+  let required = [];
+  const newHeader = header.map((h, index) => {
+    switch (h[0]) {
+      case dictionary.primaryKey:
+        if (id !== -1) {
+          throw new Error(`Two or more columns as ID. Require to be only one. Col: ${index + 1}`);
+        } else {
+          id = index;
+          return handleXlsxHead(h.split(dictionary.primaryKey)[1]);
+        }
+      case dictionary.required:
+        required.push(index);
+        return handleXlsxHead(h.split(dictionary.required)[1]);
+      default:
+        return handleXlsxHead(h);
+    }
   });
+
+  return { header: newHeader, id, required };
 };
 
 module.exports = {
   handleXlsxTypes,
   removeSpecialChars,
   validatePrimaryKeys,
-  handleXlsxHeader
+  handleXlsxHead,
+  readHeader
 };

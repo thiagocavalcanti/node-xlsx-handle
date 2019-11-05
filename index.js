@@ -5,11 +5,11 @@ const { dictionary } = require('./config');
 
 /**
  * Controller of the xlsx
- * @param  {array}  data file xlsx
- * @param  {object} params params for configuration {type,debug}
- * @return {array}  the matrix xlsx
- * @return {array}  the header
- * @return {array}  the ids index
+ * @param  {Array}  data file xlsx
+ * @param  {Object} params params for configuration {type,debug}
+ * @return {Object.Array}  the matrix xlsx
+ * @return {Object.Array}  the header
+ * @return {Object.Number}  the id index
  */
 const convertXlsxToArray = (data, params) => {
   const { type = 'base64', debug = false } = params;
@@ -17,54 +17,42 @@ const convertXlsxToArray = (data, params) => {
     data = data.split(`${type},`)[1];
     const benchmark = Date.now();
     const workbook = XLSX.read(data, { type });
-    if (debug) console.log('Time to read xlsx file: ', utils.timeConversion(Date.now() - benchmark));
-    delete benchmark;
-    const [cols, rows] = [workbook.Sheets[workbook.SheetNames[1]]['B1'].v, workbook.Sheets[workbook.SheetNames[1]]['B2'].v];
+    if (debug) console.log('[XLSX-HANDLE] Time to read xlsx file: ', utils.timeConversion(Date.now() - benchmark));
+    const [colsCount, rowsCount] = [workbook.Sheets[workbook.SheetNames[1]]['B1'].v, workbook.Sheets[workbook.SheetNames[1]]['B2'].v];
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const cells_names = Object.keys(worksheet).filter(c => !c.split('!')[1]);
-    const cells = cells_names.map(cell => worksheet[cell].v);
+    const header_cells_names = cells_names.splice(0, colsCount);
+    const cells_values = cells_names.map(cell => worksheet[cell].v);
+    let header = header_cells_names.map(cell => worksheet[cell].v);
+
     let xlsx = [];
-    let header = cells.filter((c, index) => index < cols);
-    let ids = [];
-    let required = [];
-    header = header.map((h, index) => {
-      switch (h[0]) {
-        case dictionary.primaryKey:
-          ids.push(index);
-          return h.split(dictionary.primaryKey)[1];
-        case dictionary.required:
-          required.push(index);
-          return h.split(dictionary.required)[1];
-        default:
-          return h;
-      }
-    });
+    let { id, required, header: newHeader } = xlsxUtils.readHeader(header);
+    header = newHeader;
 
     let blankValues = 0;
-    for (let i = 1; i < rows; i++) {
+    for (let i = 0; i < rowsCount - 1; i++) {
       xlsx.push([]);
-      for (let j = 0; j < cols; j++) {
-        const cell_name = cells_names[i * cols + j - blankValues];
+      for (let j = 0; j < colsCount; j++) {
+        const cell_name = cells_names[i * colsCount + j - blankValues];
         if (cell_name && cell_name.charCodeAt(0) - 65 === j) {
-          xlsx[i - 1].push(cells[i * cols + j - blankValues]);
+          xlsx[i].push(cells_values[i * colsCount + j - blankValues]);
         } else {
-          if (cell_name && (required.includes(j) || ids.includes(j))) {
+          if (cell_name && (required.includes(j) || id === j)) {
             const colunm = String.fromCharCode(65 + j);
-            throw new Error(`Missing required value in cell ${colunm}${i + 1}`);
+            throw new Error(`Missing required value in cell ${colunm}${i + 2}`);
           } else {
-            xlsx[i - 1].push('');
+            xlsx[i].push('');
             blankValues++;
           }
         }
       }
     }
 
-    xlsxUtils.validatePrimaryKeys(xlsx.map(row => row[ids[0]]));
-
+    xlsxUtils.validatePrimaryKeys(xlsx.map(row => row[id]));
     return {
       xlsx,
       header,
-      ids
+      id
     };
   } catch (error) {
     return { error };
@@ -82,8 +70,8 @@ const handleXlsx = (data, params) => {
   try {
     let benchmark = Date.now();
     const { xlsx, header, ids, error } = convertXlsxToArray(data, params);
-    header = xlsxUtils.handleXlsxHeader(header);
-    if (debug) console.log('Time to convert xlsx to matrix: ', utils.timeConversion(Date.now() - benchmark));
+
+    if (debug) console.log('[XLSX-HANDLE] Time to convert xlsx to matrix: ', utils.timeConversion(Date.now() - benchmark));
     if (error) {
       throw new Error(error);
     } else {
@@ -110,7 +98,7 @@ const handleXlsx = (data, params) => {
         const newProgress = utils.verifyProgress(index, xlsx.length);
         if (debug && newProgress) console.log(`Handling file... ${newProgress}%`);
       }
-      if (debug) console.log('Time to handle file: ', utils.timeConversion(Date.now() - benchmark));
+      if (debug) console.log('[XLSX-HANDLE] Time to handle file: ', utils.timeConversion(Date.now() - benchmark));
       return subDocuments ? { documents: utils.creatingSmallerArrays(documents, subDocuments) } : { documents };
     }
   } catch (error) {
