@@ -17,7 +17,7 @@ const convertXlsxToArray = (data, params) => {
     data = data.split(`${type},`)[1];
     const benchmark = Date.now();
     const workbook = XLSX.read(data, { type });
-    if (debug) console.log('[XLSX-HANDLE] Time to read xlsx file: ', utils.timeConversion(Date.now() - benchmark));
+    if (debug) xlsxUtils.sendLog('Time to read xlsx file:', benchmark);
     const [colsCount, rowsCount] = [workbook.Sheets[workbook.SheetNames[1]]['B1'].v, workbook.Sheets[workbook.SheetNames[1]]['B2'].v];
     const worksheet = workbook.Sheets[workbook.SheetNames[0]];
     const cells_names = Object.keys(worksheet).filter(c => !c.split('!')[1]);
@@ -70,7 +70,7 @@ const handleXlsx = (data, params) => {
     let benchmark = Date.now();
     const { xlsx, header, id, error } = convertXlsxToArray(data, params);
 
-    if (debug) console.log('[XLSX-HANDLE] Time to convert xlsx to matrix: ', utils.timeConversion(Date.now() - benchmark));
+    if (debug) xlsxUtils.sendLog('Time to convert xlsx to matrix:', benchmark);
     if (error) {
       throw new Error(error);
     } else {
@@ -93,9 +93,9 @@ const handleXlsx = (data, params) => {
           documents.push(doc);
         }
         const newProgress = utils.verifyProgress(index, xlsx.length);
-        if (debug && newProgress) console.log(`Handling file... ${newProgress}%`);
+        if (debug && newProgress) xlsxUtils.sendLog(`Handling file... ${newProgress}%`);
       }
-      if (debug) console.log('[XLSX-HANDLE] Time to handle file: ', utils.timeConversion(Date.now() - benchmark));
+      if (debug) xlsxUtils.sendLog('Time to handle file:', benchmark);
       return subDocuments ? { documents: utils.creatingSmallerArrays(documents, subDocuments) } : { documents };
     }
   } catch (error) {
@@ -112,17 +112,11 @@ const handleXlsx = (data, params) => {
  * @return {Object} a new/updated doc
  */
 const _handleXlsxRow = (doc, row, header, id) => {
-  // [x] Model: { array: '', name: '', value: '', index: -1 }
-  let key_array = [];
-
   header.forEach((h, index) => {
-    const { type, headerObjectPaths, headerKey } = h;
+    const { type, headerKey } = h;
 
     // [x] Get Value
     const value = xlsxUtils.handleXlsxTypes(row[index], type ? type.trim() : undefined);
-
-    // [x] Check nested objects. Ex: A.B.[C].D
-    let object_ref = {};
 
     // [x] Creating doc if necessary (only id)
     if (!Object.keys(doc).length) {
@@ -132,74 +126,7 @@ const _handleXlsxRow = (doc, row, header, id) => {
     // [x] Return if id
     if (id === index) return;
 
-    // [x] Interects over nested objects
-    headerObjectPaths.forEach((obj, obj_index) => {
-      // [x] Get reference
-      if (!obj_index) object_ref = doc;
-      let key_array_item = key_array.find(a => a.index === obj_index);
-      if (key_array_item) {
-        if (key_array_item.array === obj.replace(/[\[\]]/g, '')) {
-          object_ref = object_ref[key_array_item.array].find(a => a[key_array_item.name] === key_array_item.value);
-          return;
-        } else delete key_array_item;
-      }
-      // [x] Check for array
-      const array = obj.replace(/[\[\]]/g, '');
-
-      // [x] Not Array
-      if (array.length === obj.length) {
-        // [x] Not last object
-        if (obj_index !== headerObjectPaths.length - 1) {
-          if (!object_ref[obj]) object_ref[obj] = {};
-          object_ref = object_ref[obj];
-        }
-        // [x] Last object
-        else {
-          // [x] Object of an array
-          if (Array.isArray(object_ref))
-            object_ref.push({
-              [obj]: value
-            });
-          // [x] Regular value of a key
-          else object_ref[obj] = value;
-        }
-      }
-
-      // [x] Array
-      else {
-        // [x] Check if array already exists
-        if (!object_ref[xlsxUtils.removeSpecialChars(array)]) object_ref[xlsxUtils.removeSpecialChars(array)] = [];
-
-        // [x] Not last object
-        if (obj_index !== headerObjectPaths.length - 1) {
-          // [x] Check if key array
-          if (array.includes(dictionary.primaryKey)) {
-            key_array.push({
-              array: xlsxUtils.removeSpecialChars(array),
-              name: headerObjectPaths[obj_index + 1],
-              value,
-              index: obj_index
-            });
-          }
-          object_ref = object_ref[xlsxUtils.removeSpecialChars(array)];
-
-          // [x] Check if array already exists to get reference
-          let array_item = object_ref.find(a => a[headerObjectPaths[obj_index + 1]] === value);
-          if (array_item) object_ref = array_item;
-        }
-        // [x] Last object
-        else {
-          // [x] Check if the value is an array
-          if (Array.isArray(value)) {
-            value.forEach(v => {
-              if (!object_ref[array].includes(v)) object_ref[array].push(v);
-            });
-          } else {
-            value.split(';').forEach(v => !object_ref[array].includes(v) && object_ref[array].push(v));
-          }
-        }
-      }
-    });
+    utils.setValue(doc, headerKey, value);
   });
   return doc;
 };
