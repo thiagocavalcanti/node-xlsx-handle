@@ -1,4 +1,17 @@
 const config = require('xlsx-handle/config');
+const utils = require('./general');
+
+/**
+ * Handle xlsx head
+ * @type Private
+ * @param {Array} head The head.
+ *
+ * @returns {Array} An array containaing: type -> type of the head; headerKey -> The header key
+ */
+const _handleXlsxHead = head => {
+  const [headerKey, type] = head.split(':').map(h => h.trim());
+  return { type, headerKey };
+};
 
 /**
  * Handle a row from xlsx
@@ -20,20 +33,6 @@ const handleXlsxTypes = (value, type) => {
 };
 
 /**
- * Remove special chars, used in dictionary.
- * @param {string} value content of the cell.
- * @return {string} the value formated.
- */
-const removeSpecialChars = value => {
-  const { dictionary } = config;
-  let clearString = value;
-  for (key in dictionary) {
-    clearString = clearString.replace(dictionary.key, '');
-  }
-  return clearString;
-};
-
-/**
  * Validate primary key. Throw new error if any duplicate
  * @param {Array} primaryKeys All the primaryKeys
  */
@@ -45,18 +44,6 @@ const validatePrimaryKeys = primaryKeys => {
       throw new Error(`Primary key is not unique in the sheet. Value: ${key}`);
     }
   });
-};
-
-/**
- * Handle xlsx head
- * @param {Array} head The head.
- *
- * @returns {Array} An array containaing: type -> type of the head; headerObjectPaths -> the path of the head; headerKey -> The header key
- */
-const handleXlsxHead = head => {
-  const [headerKey, type] = head.split(':').map(h => h.trim());
-  const headerObjectPaths = headerKey.split('.').map(h => h.trim());
-  return { type, headerObjectPaths, headerKey };
 };
 
 /**
@@ -79,23 +66,30 @@ const readHeader = header => {
           throw new Error(`Two or more columns as ID. Require to be only one. Col: ${index + 1}`);
         } else {
           id = index;
-          return handleXlsxHead(h.split(dictionary.primaryKey)[1]);
+          return _handleXlsxHead(h.split(dictionary.primaryKey)[1]);
         }
       case dictionary.required:
         required.push(index);
-        return handleXlsxHead(h.split(dictionary.required)[1]);
+        return _handleXlsxHead(h.split(dictionary.required)[1]);
       default:
-        return handleXlsxHead(h);
+        return _handleXlsxHead(h);
     }
   });
 
   return { header: newHeader, id, required };
 };
 
+const sendLog = (text, startTime) => {
+  let sendText = `[XLSX-HANDLE] ${text} `;
+  if (startTime) {
+    sendText += utils.timeConversion(Date.now() - startTime);
+  }
+  console.log(sendText);
+};
+
 module.exports = {
   handleXlsxTypes,
-  removeSpecialChars,
   validatePrimaryKeys,
-  handleXlsxHead,
-  readHeader
+  readHeader,
+  sendLog
 };
