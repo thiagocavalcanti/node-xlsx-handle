@@ -23,11 +23,10 @@ const convertXlsxToArray = (data, params) => {
     const cells_names = Object.keys(worksheet).filter(c => !c.split('!')[1]);
     const header_cells_names = cells_names.splice(0, colsCount);
     const cells_values = cells_names.map(cell => worksheet[cell].v);
-    let header = header_cells_names.map(cell => worksheet[cell].v);
+    const header_values = header_cells_names.map(cell => worksheet[cell].v);
 
     let xlsx = [];
-    let { id, required, header: newHeader } = xlsxUtils.readHeader(header);
-    header = newHeader;
+    let { id, required, header } = xlsxUtils.readHeader(header_values);
 
     let blankValues = 0;
     for (let i = 0; i < rowsCount - 1; i++) {
