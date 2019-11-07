@@ -1,7 +1,6 @@
 const XLSX = require('xlsx');
 const utils = require('./utils/general');
 const xlsxUtils = require('./utils/xlsx');
-const { dictionary } = require('./config');
 
 /**
  * Controller of the xlsx
@@ -11,7 +10,7 @@ const { dictionary } = require('./config');
  * @return {Object.Array}  the header
  * @return {Object.Number}  the id index
  */
-const convertXlsxToArray = (data, params) => {
+const convertXlsxToArray = (data, params = {}) => {
   const { type = 'base64', debug = false } = params;
   try {
     data = data.split(`${type},`)[1];
@@ -64,7 +63,7 @@ const convertXlsxToArray = (data, params) => {
  * @param {string} type type of content
  * @return {array} all the docs created
  */
-const handleXlsx = (data, params) => {
+const handleXlsx = (data, params = {}) => {
   const { debug = false, subDocuments = 0 } = params;
   try {
     let benchmark = Date.now();
