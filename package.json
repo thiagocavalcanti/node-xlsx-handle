@@ -1,6 +1,6 @@
 {
   "name": "xlsx-handle",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "A handle for the xlsx package. The two main features are xlsxToArray and xlsxMapToObjects",
   "main": "index.js",
   "scripts": {

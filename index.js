@@ -13,7 +13,7 @@ const xlsxUtils = require('./utils/xlsx');
 const convertXlsxToArray = (data, params = {}) => {
   const { type = 'base64', debug = false } = params;
   try {
-    data = data.split(`${type},`)[1];
+    data = data.includes(type) ? data.split(`${type},`)[1] : data
     const benchmark = Date.now();
     const workbook = XLSX.read(data, { type });
     if (debug) xlsxUtils.sendLog('Time to read xlsx file:', benchmark);
